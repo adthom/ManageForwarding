@@ -1,0 +1,156 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseResourceName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "The base name to use for the resources that will be provisioned."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "ForwardingAdministratorUPN": {
+      "type": "string",
+      "metadata": {
+        "description": "M365 admin username that has rights to grant Teams policies."
+      }
+    },
+
+    "ForwardingAdministratorPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "M365 admin password"
+      }
+    },
+    "baseTime": {
+      "type": "string",
+      "defaultValue": "[utcNow('u')]",
+      "metadata": {
+        "description": "DO NOT CHANGE"
+      }
+    },
+    "samplePowerShellRunbookLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "The URL to the sample Runbook you want to deploy."
+      },
+      "defaultValue": "https://raw.githubusercontent.com/adthom/ManageForwarding/main/"
+    }
+  },
+  "variables": {
+    "automationAccountName": "[concat(parameters('baseResourceName'),'Acct')]",
+    "_artifactsLocation": "[parameters('samplePowerShellRunbookLocation')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2019-06-01",
+      "name": "[variables('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+      ],
+      "properties": {
+        "sku": {
+          "name": "Basic"
+        }
+      },
+      "resources": [
+        {
+          "type": "runbooks",
+          "apiVersion": "2018-06-30",
+          "name": "SetForwarding",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+          ],
+          "properties": {
+            "runbookType": "PowerShell",
+            "logProgress": false,
+            "logVerbose": false,
+            "description": "Assign numbers to users pending assignment",
+            "publishContentLink": {
+              "uri": "[uri(variables('_artifactsLocation'), 'Scripts/SetForwarding.ps1')]",
+              "version": "1.0.0.0"
+            }
+          }
+        },
+        {
+          "type": "runbooks",
+          "apiVersion": "2018-06-30",
+          "name": "GetForwarding",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+          ],
+          "properties": {
+            "runbookType": "PowerShell",
+            "logProgress": false,
+            "logVerbose": false,
+            "description": "Removes numbers that have been marked as available in list",
+            "publishContentLink": {
+              "uri": "[uri(variables('_artifactsLocation'), 'Scripts/GetForwarding.ps1')]",
+              "version": "1.0.0.0"
+            }
+          }
+        },
+        {
+          "name": "MicrosoftTeams",
+          "type": "modules",
+          "apiVersion": "2015-10-31",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+          ],
+          "properties": {
+            "contentLink": {
+              "uri": "https://devopsgallerystorage.blob.core.windows.net:443/packages/microsoftteams.2.3.1.nupkg"
+            }
+          }
+        },
+        {
+          "name": "ForwardingAdministrator",
+          "type": "credentials",
+          "apiVersion": "2015-10-31",
+          "dependsOn": [
+            "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+          ],
+          "properties": {
+            "userName": "[parameters('ForwardingAdministratorUPN')]",
+            "password": "[parameters('ForwardingAdministratorPassword')]",
+            "description": "Credentials with admin rights to grant Skype for Business and Teams policies."
+          }
+        },
+        {
+          "type": "webhooks",
+          "apiVersion": "2015-10-31",
+          "name": "SetForwardingWebhook",
+          "dependsOn": [
+            "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+            "[resourceId('Microsoft.Automation/automationAccounts/runbooks', variables('automationAccountName'), 'SetForwarding')]"
+          ],
+          "properties": {
+            "isEnabled": true,
+            "expiryTime": "[dateTimeAdd(parameters('baseTime'), 'P2Y')]",
+            "runbook": {
+              "name": "SetForwarding"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "webhookUri": {
+      "type": "String",
+      "value": "[reference('SetForwardingWebhook').uri]"
+    }
+  }
+}
