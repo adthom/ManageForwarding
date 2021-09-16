@@ -40,7 +40,12 @@ $SW.Stop()
 if ($CsSession) {
     Write-Host "Session created in $($SW.Elapsed.TotalSeconds) seconds."
     # ensure user exists:
-    $UserToUpdate = Get-CsOnlineUser -Identity $jobData.Identity
+    try {
+        $UserToUpdate = Get-CsOnlineUser -Identity $jobData.Identity -ErrorAction Stop
+    } catch {
+        $UserToUpdate = $null
+        $GetUserError = $_.Exception
+    }
     if ($UserToUpdate) {
         # set voicemail forwarding
         $ForwardingParams = @{
@@ -54,6 +59,9 @@ if ($CsSession) {
     }
     else {
         Write-Warning "User $($jobData.Identity) not found!"
+        if ($GetUserError) {
+            Write-Error -Exception $GetUserError
+        }
     }
     $CsSession | Remove-PSSession
 }
