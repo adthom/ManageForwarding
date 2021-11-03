@@ -8,7 +8,7 @@ Write-Host "PowerShell Queue Item trigger function processed a request."
 
 Import-Module -Name MicrosoftTeams
 
-$ConnectionTimeoutSeconds = 300
+$ConnectionTimeoutSeconds = 180
 $UserName = $env:TEAMS_ADMIN_USER
 $Password = $env:TEAMS_ADMIN_PASSWORD
 
@@ -71,6 +71,7 @@ do {
     catch {
         if ( $_.Exception.InnerException.ErrorCode -ne 0x803381A5 ) {
             Write-Error "Could not connect to Microsoft Teams PowerShell: $($_.Exception.Message)"
+            exit
         }
         else {
             Write-Warning "Maximum admin sessions in use, retrying for next $($ConnectionTimeoutSeconds - $sw.Elapsed.TotalSeconds) seconds"
