@@ -6,4 +6,3 @@ appsettings.json
 local.settings.json
 __azurite*
 __queuestorage*
-.vscode
