@@ -71,7 +71,7 @@ do {
     catch {
         if ( $_.Exception.InnerException.ErrorCode -ne 0x803381A5 ) {
             Write-Error "Could not connect to Microsoft Teams PowerShell: $($_.Exception.Message)"
-            exit
+            exit 1
         }
         else {
             Write-Warning "Maximum admin sessions in use, retrying for next $($ConnectionTimeoutSeconds - $sw.Elapsed.TotalSeconds) seconds"
